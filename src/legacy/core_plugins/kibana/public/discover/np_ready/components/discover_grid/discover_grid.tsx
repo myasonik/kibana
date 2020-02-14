@@ -121,22 +121,115 @@ function CellPopover({
   );
 }
 
-export function DiscoverGrid({
-  rows,
-  columns,
-  sort,
-  indexPattern,
+// todo: I just copied props from the return, can be done smarter
+const EuiDataGridWrapperMemoized = React.memo(function EuiDataGridWrapper({
   ariaLabelledBy,
-  searchTitle,
-  searchDescription,
-  useShortDots,
-  onSort,
-  sampleSize,
-  onFilter,
-  getContextAppHref,
-  onRemoveColumn,
-  onAddColumn,
-}: Props) {
+  randomId,
+  sortingColumns,
+  onTableSort,
+  rowsLength,
+  dataGridColumns,
+  renderCellValue,
+  visibleColumns,
+  setVisibleColumns,
+  pagination,
+  onChangeItemsPerPage,
+  onChangePage,
+  lowestPageSize,
+}) {
+  return (
+    <EuiDataGrid
+      aria-labelledby={ariaLabelledBy}
+      aria-describedby={randomId}
+      inMemory={{ level: 'sorting' }}
+      sorting={{ columns: sortingColumns, onSort: onTableSort }}
+      rowCount={rowsLength}
+      columns={dataGridColumns}
+      renderCellValue={renderCellValue}
+      columnVisibility={{
+        visibleColumns,
+        setVisibleColumns,
+      }}
+      pagination={{
+        ...pagination,
+        onChangeItemsPerPage,
+        onChangePage,
+        pageSizeOptions: [lowestPageSize, 100, 500],
+      }}
+      toolbarVisibility={{
+        showColumnSelector: false,
+      }}
+      gridStyle={{
+        border: 'horizontal',
+      }}
+      schemaDetectors={[
+        {
+          type: KibanaJSON,
+          detector() {
+            return 0; // this schema is always explicitly defined
+          },
+          comparator(a, b, direction) {
+            // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
+            return 1;
+          },
+          sortTextAsc: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
+          sortTextDesc: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
+          icon: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
+          color: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
+        },
+      ]}
+    />
+  );
+});
+
+let numberOfrerenders = 0;
+const compareKeys = (one: any, sec: any) => {
+  let x;
+  const strings = [];
+  for (x in one) {
+    if (one[x] !== sec[x]) {
+      strings.push(`key ${x} has different props`, one[x], sec[x]);
+    }
+  }
+
+  // eslint-disable-next-line
+  console.log(strings);
+};
+declare global {
+  interface Window {
+    props: any;
+    compareKeys: any;
+  }
+}
+
+window.props = window.props || [];
+window.compareKeys = compareKeys;
+
+export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) {
+  const {
+    rows,
+    columns,
+    sort,
+    indexPattern,
+    ariaLabelledBy,
+    searchTitle,
+    searchDescription,
+    useShortDots,
+    onSort,
+    sampleSize,
+    onFilter,
+    getContextAppHref,
+    onRemoveColumn,
+    onAddColumn,
+  } = props;
+
+  // eslint-disable-next-line
+  console.log(`grid rerendered ${++numberOfrerenders} times`);
+  if (window.props.length > 1) {
+    window.compareKeys(window.props[window.props.length - 1], props);
+  }
+  window.props.push(props);
+
   const actionColumnId = 'uniqueString'; // TODO should be guaranteed unique...
   const lowestPageSize = 50;
   const timeNode = useMemo(
@@ -149,47 +242,53 @@ export function DiscoverGrid({
     ),
     []
   );
+
+  // this causes two extra rerenders
   const timeString = useRenderToText(timeNode, 'Time');
   const [flyoutRow, setFlyoutRow] = useState<ElasticSearchHit | undefined>(undefined);
 
-  const dataGridColumns = columns.map(
-    (columnName, i): EuiDataGridColumn => {
-      // Discover always injects a Time column as the first item (unless advance settings turned it off)
-      // Have to guard against this to allow users to request the same column again later
-      if (columnName === indexPattern.timeFieldName && i === 0) {
-        return { id: timeString, schema: 'datetime' };
-      }
+  // to check if it's the same as expected
+  const dataGridColumns = useMemo(
+    () => [
+      { id: actionColumnId, isExpandable: false, display: <></> },
+      ...columns.map(
+        (columnName, i): EuiDataGridColumn => {
+          // Discover always injects a Time column as the first item (unless advance settings turned it off)
+          // Have to guard against this to allow users to request the same column again later
+          if (columnName === indexPattern.timeFieldName && i === 0) {
+            return { id: timeString, schema: 'datetime' };
+          }
 
-      const column: EuiDataGridColumn = {
-        id: columnName,
-        schema: indexPattern.getFieldByName(columnName)?.type,
-      };
+          const column: EuiDataGridColumn = {
+            id: columnName,
+            schema: indexPattern.getFieldByName(columnName)?.type,
+          };
 
-      // Default DataGrid schemas: boolean, numeric, datetime, json, currency
-      // Default indexPattern types: KBN_FIELD_TYPES in src/plugins/data/common/kbn_field_types/types.ts
-      switch (column.schema) {
-        case 'date':
-          column.schema = 'datetime';
-          break;
-        case 'numeric':
-          column.schema = 'number';
-          break;
-        case '_source':
-        case 'object':
-          column.schema = KibanaJSON;
-          break;
-      }
+          // Default DataGrid schemas: boolean, numeric, datetime, json, currency
+          // Default indexPattern types: KBN_FIELD_TYPES in src/plugins/data/common/kbn_field_types/types.ts
+          switch (column.schema) {
+            case 'date':
+              column.schema = 'datetime';
+              break;
+            case 'numeric':
+              column.schema = 'number';
+              break;
+            case '_source':
+            case 'object':
+              column.schema = KibanaJSON;
+              break;
+          }
 
-      if (useShortDots) {
-        column.display = <>{shortenDottedString(columnName)}</>;
-      }
+          if (useShortDots) {
+            column.display = <>{shortenDottedString(columnName)}</>;
+          }
 
-      return column;
-    }
+          return column;
+        }
+      ),
+    ],
+    [columns, indexPattern, useShortDots, timeString]
   );
-
-  dataGridColumns.unshift({ id: actionColumnId, isExpandable: false, display: <></> });
-
   /**
    * Pagination
    */
@@ -321,46 +420,20 @@ export function DiscoverGrid({
 
   return (
     <>
-      <EuiDataGrid
-        aria-labelledby={ariaLabelledBy}
-        aria-describedby={randomId}
-        inMemory={{ level: 'sorting' }}
-        sorting={{ columns: sortingColumns, onSort: onTableSort }}
-        rowCount={rows.length}
-        columns={dataGridColumns}
+      <EuiDataGridWrapperMemoized
+        ariaLabelledBy={ariaLabelledBy}
+        randomId={randomId}
+        sortingColumns={sortingColumns}
+        onTableSort={onTableSort}
+        rowsLength={rows.length}
+        dataGridColumns={dataGridColumns}
         renderCellValue={renderCellValue}
-        columnVisibility={{
-          visibleColumns,
-          setVisibleColumns,
-        }}
-        pagination={{
-          ...pagination,
-          onChangeItemsPerPage,
-          onChangePage,
-          pageSizeOptions: [lowestPageSize, 100, 500],
-        }}
-        toolbarVisibility={{
-          showColumnSelector: false,
-        }}
-        gridStyle={{
-          border: 'horizontal',
-        }}
-        schemaDetectors={[
-          {
-            type: KibanaJSON,
-            detector() {
-              return 0; // this schema is always explicitly defined
-            },
-            comparator(a, b, direction) {
-              // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
-              return 1;
-            },
-            sortTextAsc: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
-            sortTextDesc: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
-            icon: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
-            color: '', // Eventually this column will be non-sortable: https://github.com/elastic/eui/issues/2623
-          },
-        ]}
+        visibleColumns={visibleColumns}
+        setVisibleColumns={setVisibleColumns}
+        pagination={pagination}
+        onChangeItemsPerPage={onChangeItemsPerPage}
+        onChangePage={onChangePage}
+        lowestPageSize={lowestPageSize}
       />
       {showDisclaimer && (
         <>
@@ -444,4 +517,4 @@ export function DiscoverGrid({
       )}
     </>
   );
-}
+});
