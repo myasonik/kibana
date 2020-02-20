@@ -125,8 +125,8 @@ function CellPopover({
 const EuiDataGridWrapperMemoized = React.memo(function EuiDataGridWrapper({
   ariaLabelledBy,
   randomId,
-  sortingColumns,
-  onTableSort,
+  sort,
+  onSort,
   rowsLength,
   dataGridColumns,
   renderCellValue,
@@ -137,6 +137,17 @@ const EuiDataGridWrapperMemoized = React.memo(function EuiDataGridWrapper({
   onChangePage,
   lowestPageSize,
 }) {
+  /**
+   * Sorting
+   */
+  const sortingColumns = useMemo(() => sort.map(([id, direction]) => ({ id, direction })), [sort]);
+  const onTableSort = useCallback(
+    sortingColumnsData => {
+      onSort(sortingColumnsData.map(({ id, direction }: SortObj) => [id, direction]));
+    },
+    [onSort]
+  );
+
   return (
     <EuiDataGrid
       aria-labelledby={ariaLabelledBy}
@@ -232,19 +243,11 @@ export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) 
 
   const actionColumnId = 'uniqueString'; // TODO should be guaranteed unique...
   const lowestPageSize = 50;
-  const timeNode = useMemo(
-    () => (
-      <span>
-        {i18n.translate('kbn.discover.timeLabel', {
-          defaultMessage: 'Time',
-        })}
-      </span>
-    ),
-    []
-  );
 
   // this causes two extra rerenders
-  const timeString = useRenderToText(timeNode, 'Time');
+  const timeString = i18n
+    .translate('kbn.discover.timeLabel', { defaultMessage: 'Time' })
+    .toString();
   const [flyoutRow, setFlyoutRow] = useState<ElasticSearchHit | undefined>(undefined);
 
   // to check if it's the same as expected
@@ -303,23 +306,18 @@ export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) 
   );
 
   /**
-   * Sorting
-   */
-  const sortingColumns = useMemo(() => sort.map(([id, direction]) => ({ id, direction })), [sort]);
-  const onTableSort = useCallback(
-    sortingColumnsData => {
-      onSort(sortingColumnsData.map(({ id, direction }: SortObj) => [id, direction]));
-    },
-    [onSort]
-  );
-
-  /**
    * Visibility and order
    */
   const [visibleColumns, setVisibleColumns] = useState(dataGridColumns.map(obj => obj.id));
+
+  // avoid second rerender, basically this is a behavior of componentDidUpdate (not run on mount)
+  const mounted = React.useRef();
   useEffect(() => {
-    // every time a column is added, make it visible
-    setVisibleColumns(dataGridColumns.map(obj => obj.id));
+    if (!mounted.current) {
+      mounted.current = true;
+    } else {
+      setVisibleColumns(dataGridColumns.map(obj => obj.id));
+    }
   }, [dataGridColumns.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -421,10 +419,10 @@ export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) 
   return (
     <>
       <EuiDataGridWrapperMemoized
+        onSort={onSort}
+        sort={sort}
         ariaLabelledBy={ariaLabelledBy}
         randomId={randomId}
-        sortingColumns={sortingColumns}
-        onTableSort={onTableSort}
         rowsLength={rows.length}
         dataGridColumns={dataGridColumns}
         renderCellValue={renderCellValue}
