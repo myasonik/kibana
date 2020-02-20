@@ -42,6 +42,7 @@ import { DocViewer } from '../doc_viewer/doc_viewer';
 import { IndexPattern } from '../../../kibana_services';
 import { ElasticSearchHit, DocViewFilterFn } from '../../doc_views/doc_views_types';
 import { shortenDottedString } from '../../../../../../../../plugins/data/common/utils/shorten_dotted_string';
+import { logRerender, logPropChanges } from './perf_loggers';
 
 type Direction = 'asc' | 'desc';
 type SortArr = [string, Direction];
@@ -137,6 +138,8 @@ const EuiDataGridWrapperMemoized = React.memo(function EuiDataGridWrapper({
   onChangePage,
   lowestPageSize,
 }) {
+  logRerender('EuiDataGridWrapperMemoized');
+
   /**
    * Sorting
    */
@@ -193,29 +196,6 @@ const EuiDataGridWrapperMemoized = React.memo(function EuiDataGridWrapper({
   );
 });
 
-let numberOfrerenders = 0;
-const compareKeys = (one: any, sec: any) => {
-  let x;
-  const strings = [];
-  for (x in one) {
-    if (one[x] !== sec[x]) {
-      strings.push(`key ${x} has different props`, one[x], sec[x]);
-    }
-  }
-
-  // eslint-disable-next-line
-  console.log(strings);
-};
-declare global {
-  interface Window {
-    props: any;
-    compareKeys: any;
-  }
-}
-
-window.props = window.props || [];
-window.compareKeys = compareKeys;
-
 export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) {
   const {
     rows,
@@ -234,12 +214,8 @@ export const DiscoverGrid = React.memo(function DiscoverGridInner(props: Props) 
     onAddColumn,
   } = props;
 
-  // eslint-disable-next-line
-  console.log(`grid rerendered ${++numberOfrerenders} times`);
-  if (window.props.length > 1) {
-    window.compareKeys(window.props[window.props.length - 1], props);
-  }
-  window.props.push(props);
+  logRerender('DiscoverGrid');
+  logPropChanges('DiscoverGrid', props);
 
   const actionColumnId = 'uniqueString'; // TODO should be guaranteed unique...
   const lowestPageSize = 50;
