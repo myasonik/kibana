@@ -26,6 +26,7 @@ import {
   EuiNavDrawer,
   EuiShowFor,
   htmlIdGenerator,
+  EuiHeaderLogo,
 } from '@elastic/eui';
 import { i18n } from '@kbn/i18n';
 import classnames from 'classnames';
@@ -125,6 +126,36 @@ export function Header({
     <>
       <LoadingIndicator loadingCount$={observables.loadingCount$} />
       <header className={className} data-test-subj="headerGlobalNav">
+        <EuiHeader
+          theme="dark"
+          position="fixed"
+          sections={[
+            {
+              items: [
+                <HeaderLogo
+                  href={homeHref}
+                  forceNavigation$={observables.forceAppSwitcherNavigation$}
+                  navLinks$={observables.navLinks$}
+                  navigateToApp={application.navigateToApp}
+                />,
+              ],
+              borders: 'none',
+            },
+            {
+              items: [
+                <HeaderHelpMenu
+                  helpExtension$={observables.helpExtension$}
+                  helpSupportUrl$={observables.helpSupportUrl$}
+                  kibanaDocLink={kibanaDocLink}
+                  kibanaVersion={kibanaVersion}
+                />,
+                <HeaderNavControls navControls$={observables.navControlsRight$} />,
+              ],
+              borders: 'none',
+            },
+          ]}
+        />
+
         <EuiHeader position="fixed">
           <EuiHeaderSection grow={false}>
             {navType === 'modern' ? (
@@ -153,14 +184,7 @@ export function Header({
               </EuiShowFor>
             )}
 
-            <EuiHeaderSectionItem border="right">
-              <HeaderLogo
-                href={homeHref}
-                forceNavigation$={observables.forceAppSwitcherNavigation$}
-                navLinks$={observables.navLinks$}
-                navigateToApp={application.navigateToApp}
-              />
-            </EuiHeaderSectionItem>
+            <EuiHeaderSectionItem border="right" />
 
             <HeaderNavControls side="left" navControls$={observables.navControlsLeft$} />
           </EuiHeaderSection>
@@ -171,19 +195,6 @@ export function Header({
           />
 
           <HeaderBadge badge$={observables.badge$} />
-
-          <EuiHeaderSection side="right">
-            <EuiHeaderSectionItem>
-              <HeaderHelpMenu
-                helpExtension$={observables.helpExtension$}
-                helpSupportUrl$={observables.helpSupportUrl$}
-                kibanaDocLink={kibanaDocLink}
-                kibanaVersion={kibanaVersion}
-              />
-            </EuiHeaderSectionItem>
-
-            <HeaderNavControls side="right" navControls$={observables.navControlsRight$} />
-          </EuiHeaderSection>
         </EuiHeader>
         {navType === 'modern' ? (
           <CollapsibleNav
