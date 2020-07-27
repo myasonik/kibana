@@ -6,14 +6,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  EuiSelectable,
-  EuiPopover,
-  EuiPopoverFooter,
   EuiText,
   EuiFlexGroup,
   EuiFlexItem,
   EuiBadge,
-  EuiIcon,
+  EuiSelectableTemplateSitewide,
+  EuiLink,
 } from '@elastic/eui';
 import { ApplicationStart } from 'kibana/public';
 import { FormattedMessage } from '@kbn/i18n/react';
@@ -26,7 +24,6 @@ interface Props {
 }
 
 export function SearchBar({ globalSearch, navigateToUrl }: Props) {
-  const [isSearchFocused, setSearchFocus] = useState(false);
   const [options, setOptions] = useState([] as GlobalSearchResult[]);
   const [isLoading, setLoadingState] = useState(false);
   const [searchRef, setSearchRef] = useState<HTMLInputElement | null>(null);
@@ -70,47 +67,41 @@ export function SearchBar({ globalSearch, navigateToUrl }: Props) {
   }, [searchRef, isWindows]);
 
   return (
-    <EuiSelectable
-      searchable
-      height={300}
+    <EuiSelectableTemplateSitewide
+      isLoading={isLoading}
       singleSelection={true}
+      // @ts-ignore Have some type errors in EUI
+      options={options.map((option) => ({
+        ...option,
+        key: option.id,
+        label: option.title,
+        icon: {
+          type: option.icon,
+        },
+        meta: [
+          {
+            text: option.type,
+            type: option.type,
+          },
+          {
+            text: option.meta,
+          },
+        ],
+      }))}
       searchProps={{
-        isLoading,
         onSearch,
         'data-test-subj': 'header-search',
-        onFocus: () => {
-          setSearchFocus(true);
-        },
-        onBlur: () => setSearchFocus(false),
-        placeholder: 'Search for anything...',
-        incremental: true,
+        append: '⌘K',
         compressed: true,
-        inputRef: (ref: HTMLInputElement) => {
-          setSearchRef(ref);
-        },
+        incremental: true,
+        className: 'customSearchClass',
+        // inputRef: (ref: HTMLInputElement) => {
+        //   setSearchRef(ref);
+        // },
         'aria-label': i18n.translate('core.ui.primaryNav.screenReaderLabel', {
           defaultMessage: 'Search for anything...',
         }),
       }}
-      listProps={{
-        rowHeight: 68,
-      }}
-      options={options.map((option) => ({ key: option.id, ...option }))}
-      renderOption={(option, searchValue) => (
-        <EuiFlexGroup responsive={false} gutterSize="s">
-          <EuiFlexItem grow={false}>{option.icon && <EuiIcon type={option.icon} />}</EuiFlexItem>
-          <EuiFlexItem>{option.title}</EuiFlexItem>
-          <EuiFlexItem grow={false}>
-            <EuiBadge
-              aria-hidden={true}
-              className="kibanaChromeSearch__itemGotoBadge"
-              color="hollow"
-            >
-              Go to <small>&#x21A9;</small>
-            </EuiBadge>
-          </EuiFlexItem>
-        </EuiFlexGroup>
-      )}
       onChange={(selected) => {
         const { url } = selected.find(({ checked }) => checked === 'on');
 
@@ -127,40 +118,20 @@ export function SearchBar({ globalSearch, navigateToUrl }: Props) {
           // TODO
         }
       }}
-    >
-      {(list, search) => (
-        <>
-          <EuiPopover
-            button={search}
-            isOpen={isSearchFocused}
-            closePopover={() => setSearchFocus(false)}
-            panelPaddingSize={'none'}
-            hasArrow={false}
-          >
-            <div style={{ width: '600px' }}>{list}</div>
-            <EuiPopoverFooter>
-              <EuiText className="kibanaChromeSearch__popoverFooter" size="xs">
-                <EuiFlexGroup
-                  alignItems="center"
-                  justifyContent="flexEnd"
-                  gutterSize="s"
-                  responsive={false}
-                >
-                  <EuiFlexItem grow={false} component="p">
-                    <FormattedMessage
-                      id="searchBar.shortcut"
-                      defaultMessage="Quickly search using {shortcut}"
-                      values={{
-                        shortcut: <EuiBadge>{isWindows ? 'Command + K' : 'Ctrl + K'}</EuiBadge>,
-                      }}
-                    />
-                  </EuiFlexItem>
-                </EuiFlexGroup>
-              </EuiText>
-            </EuiPopoverFooter>
-          </EuiPopover>
-        </>
-      )}
-    </EuiSelectable>
+      popoverFooter={
+        <EuiText color="subdued" size="xs">
+          <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false} wrap>
+            <EuiFlexItem grow={false}>{false && <EuiLink>View more results</EuiLink>}</EuiFlexItem>
+            <EuiFlexItem />
+            <EuiFlexItem grow={false}>
+              <FormattedMessage id="searchBar.shortcut" defaultMessage="Quickly search using" />
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiBadge>{!isWindows ? 'Command + K' : 'Ctrl + K'}</EuiBadge>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiText>
+      }
+    />
   );
 }
